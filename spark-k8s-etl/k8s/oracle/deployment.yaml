@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oracle-xe
+  namespace: spark-etl
+  labels:
+    app: oracle-xe
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: oracle-xe
+  template:
+    metadata:
+      labels:
+        app: oracle-xe
+    spec:
+      containers:
+        - name: oracle
+          image: gvenzl/oracle-xe:21-slim
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: ORACLE_PASSWORD
+              value: "Oracle123"
+            - name: APP_USER
+              value: "appuser"
+            - name: APP_USER_PASSWORD
+              value: "AppUser123"
+          ports:
+            - containerPort: 1521
+              name: listener
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "2Gi"
+            limits:
+              cpu: "1"
+              memory: "4Gi"
+          volumeMounts:
+            - name: oracle-data
+              mountPath: /opt/oracle/oradata
+            - name: oracle-init-sql
+              mountPath: /opt/oracle/init
+      volumes:
+        - name: oracle-data
+          persistentVolumeClaim:
+            claimName: oracle-data-pvc
+        - name: oracle-init-sql
+          configMap:
+            name: oracle-init-sql
+            items:
+              - key: sample-data.sql
+                path: sample-data.sql
+

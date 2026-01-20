@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: spark-etl
+  labels:
+    app.kubernetes.io/name: spark-etl
+

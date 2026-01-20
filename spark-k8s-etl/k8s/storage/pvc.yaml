@@ -1,0 +1,66 @@
+---
+# Oracle data PVC (keeps Oracle XE files stable across restarts)
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: oracle-data-pv
+  labels:
+    app.kubernetes.io/name: oracle-xe
+spec:
+  capacity:
+    storage: 5Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: hostpath
+  hostPath:
+    # Docker Desktop node path; good enough for local dev.
+    path: /var/lib/spark-etl/oracle
+    type: DirectoryOrCreate
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: oracle-data-pvc
+  namespace: spark-etl
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: hostpath
+  resources:
+    requests:
+      storage: 5Gi
+  volumeName: oracle-data-pv
+---
+# Output PVC (Spark writes fixed-width output here)
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: etl-output-pv
+  labels:
+    app.kubernetes.io/name: spark-etl-output
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: hostpath
+  hostPath:
+    path: /var/lib/spark-etl/output
+    type: DirectoryOrCreate
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: etl-output-pvc
+  namespace: spark-etl
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: hostpath
+  resources:
+    requests:
+      storage: 1Gi
+  volumeName: etl-output-pv
+

@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: oracle-init-sql
+  namespace: spark-etl
+data:
+  sample-data.sql: |
+    -- Sample CUSTOMERS table and data for Spark ETL
+    CREATE TABLE CUSTOMERS (
+      ID      NUMBER(10)   PRIMARY KEY,
+      NAME    VARCHAR2(30) NOT NULL,
+      STATE   CHAR(2)      NOT NULL,
+      BALANCE NUMBER(12,2) DEFAULT 0
+    );
+
+    INSERT INTO CUSTOMERS (ID, NAME, STATE, BALANCE) VALUES (1, 'Alice Johnson', 'CA', 1200.50);
+    INSERT INTO CUSTOMERS (ID, NAME, STATE, BALANCE) VALUES (2, 'Bob Smith', 'NY', 250.00);
+    INSERT INTO CUSTOMERS (ID, NAME, STATE, BALANCE) VALUES (3, 'Charlie Brown', 'TX', 98765.43);
+    INSERT INTO CUSTOMERS (ID, NAME, STATE, BALANCE) VALUES (4, 'Diana Prince', 'WA', 0.00);
+    INSERT INTO CUSTOMERS (ID, NAME, STATE, BALANCE) VALUES (5, 'Evan Miller', 'FL', 1234.56);
+
+    COMMIT;
+

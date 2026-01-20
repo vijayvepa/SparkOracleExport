@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: output-reader
+  namespace: spark-etl
+spec:
+  restartPolicy: Never
+  containers:
+    - name: reader
+      image: busybox:1.36
+      command: ["sh", "-lc", "sleep 3600"]
+      volumeMounts:
+        - name: output
+          mountPath: /output
+  volumes:
+    - name: output
+      persistentVolumeClaim:
+        claimName: etl-output-pvc
+
