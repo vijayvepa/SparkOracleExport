@@ -35,6 +35,7 @@ helm version
 
 In Docker Desktop:
 - Settings → Kubernetes → **Enable Kubernetes** → Apply & Restart
+- **!IMPORTANT** Settings → General → **Use containerd for pulling and storing images** → Apply & Restart
 
 Increase resources (Oracle is memory-hungry):
 - Settings → Resources → **Memory 6–8GB** recommended

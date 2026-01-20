@@ -67,6 +67,10 @@ apply_storage() {
 }
 
 deploy_mysql() {
+	info "Pull Docker image for MySQL..."
+	docker pull mysql:8.0
+	info "Docker image pulled successfully."
+
   info "Deploying MySQL resources..."
   kubectl apply -f "${SCRIPT_DIR}/k8s/mysql/init-configmap.yaml"
   kubectl apply -f "${SCRIPT_DIR}/k8s/mysql/deployment.yaml"
@@ -141,10 +145,13 @@ deploy_spark_operator() {
   fi
 
   # Install or upgrade into the same namespace used by the ETL job.
+  # Ensure the operator watches our ETL namespace (by default it watches "default").
   info "Installing/upgrading Spark Operator..."
   helm upgrade --install spark-operator spark-operator/spark-operator \
     --namespace "${NAMESPACE}" \
     --create-namespace \
+    --set sparkJobNamespace="${NAMESPACE}" \
+    --set spark.jobNamespaces="{${NAMESPACE}}" \
     "${values_arg[@]}"
 
   info "Waiting for Spark Operator pods to be ready..."
@@ -171,7 +178,7 @@ deploy_spark_operator() {
 }
 
 build_spark_image() {
-  info "Building Spark image '${SPARK_IMAGE_TAG}'..."
+	info "Building Spark image '${SPARK_IMAGE_TAG}'..."
 
   local driver_jar="${SCRIPT_DIR}/docker/spark/drivers/mysql-connector-j.jar"
   if [[ ! -f "${driver_jar}" ]]; then

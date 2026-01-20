@@ -7,7 +7,8 @@ spec:
   type: Python
   mode: cluster
   image: spark-etl:local
-  imagePullPolicy: IfNotPresent
+  imagePullPolicy: Always
+  imagePullSecrets: []
   mainApplicationFile: local:///opt/spark-app/etl_job.py
   arguments: []
   sparkVersion: "3.5.0"
@@ -32,6 +33,7 @@ spec:
     memory: 1g
     labels:
       version: "3.5.0"
+    serviceAccount: spark
     volumeMounts:
       - name: output-pvc
         mountPath: /output
