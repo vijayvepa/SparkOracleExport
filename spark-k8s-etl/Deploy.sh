@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-NAMESPACE="spark-etl"
+NAMESPACE="spark-etl-mysql"
 SPARK_IMAGE_TAG="spark-etl:local"
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
@@ -28,9 +28,9 @@ Steps you can run individually:
   prereqs          - check kubectl/helm/docker and show context
   namespace        - create/ensure namespace
   storage          - create PV/PVC resources
-  oracle           - deploy Oracle (ConfigMap, Deployment, Service)
-  oracle-wait      - wait for Oracle deployment to be ready
-  oracle-sql       - load sample SQL into Oracle
+  mysql            - deploy MySQL (ConfigMap, Deployment, Service)
+  mysql-wait       - wait for MySQL deployment to be ready
+  mysql-sql        - load sample SQL into MySQL
   operator         - install/upgrade Spark Operator (Helm)
   image            - build Spark image (${SPARK_IMAGE_TAG})
   spark-app        - apply SparkApplication manifest
@@ -39,7 +39,7 @@ Steps you can run individually:
 Examples:
   $(basename "$0")                    # full pipeline
   $(basename "$0") prereqs namespace  # only run first two steps
-  $(basename "$0") oracle-sql         # reload sample data
+  $(basename "$0") mysql-sql          # reload sample data
 EOF
 }
 
@@ -51,6 +51,7 @@ check_prereqs() {
 
   info "Current kubectl context:"
   kubectl config current-context || true
+  info "Prerequisites check successful."
 }
 
 create_namespace() {
@@ -65,24 +66,48 @@ apply_storage() {
   kubectl -n "${NAMESPACE}" get pv,pvc || kubectl get pv,pvc
 }
 
-deploy_oracle() {
-  info "Deploying Oracle XE resources..."
-  # Oracle manifests live under k8s/oracle.
-  kubectl apply -f "${SCRIPT_DIR}/k8s/oracle/init-configmap.yaml"
-  kubectl apply -f "${SCRIPT_DIR}/k8s/oracle/deployment.yaml"
-  kubectl apply -f "${SCRIPT_DIR}/k8s/oracle/service.yaml"
+deploy_mysql() {
+  info "Deploying MySQL resources..."
+  kubectl apply -f "${SCRIPT_DIR}/k8s/mysql/init-configmap.yaml"
+  kubectl apply -f "${SCRIPT_DIR}/k8s/mysql/deployment.yaml"
+  kubectl apply -f "${SCRIPT_DIR}/k8s/mysql/service.yaml"
 }
 
-wait_for_oracle() {
-  info "Waiting for Oracle XE deployment to become ready (this can take several minutes)..."
-  kubectl -n "${NAMESPACE}" rollout status deploy/oracle-xe --timeout=15m
+wait_for_mysql() {
+  info "Waiting for MySQL deployment to become ready..."
+  kubectl -n "${NAMESPACE}" rollout status deploy/mysql --timeout=10m
 }
 
-load_sample_sql() {
-  info "Loading sample SQL into Oracle XE..."
-  # This mirrors the command documented in README.md.
-  kubectl -n "${NAMESPACE}" exec deploy/oracle-xe -c oracle -- bash -lc \
-    "sqlplus system/Oracle123@localhost:1521/XEPDB1 @/opt/oracle/init/sample-data.sql"
+load_mysql_sql() {
+  info "Loading sample SQL into MySQL..."
+
+  local mysql_pod
+  mysql_pod="$(kubectl -n "${NAMESPACE}" get pods -l app=mysql -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)"
+
+  if [[ -z "${mysql_pod}" ]]; then
+    error "Could not find a MySQL pod in namespace ${NAMESPACE}."
+    error "Check: kubectl -n ${NAMESPACE} get pods"
+    exit 1
+  fi
+
+  info "MySQL pod found: ${mysql_pod}"
+
+  local mysql_container
+  mysql_container="$(kubectl -n "${NAMESPACE}" get pod "${mysql_pod}" -o jsonpath='{.spec.containers[0].name}' 2>/dev/null || true)"
+
+  if [[ -z "${mysql_container}" ]]; then
+    error "Could not determine MySQL container name for pod ${mysql_pod}."
+    error "Inspect the pod with: kubectl -n ${NAMESPACE} get pod ${mysql_pod} -o yaml"
+    exit 1
+  fi
+
+  info "Using MySQL container: ${mysql_container}"
+  info "Executing SQL command..."
+
+  kubectl -n "${NAMESPACE}" exec "${mysql_pod}" -c "${mysql_container}" -- bash -lc \
+    "mysql -uroot -prootpassword etldb < /docker-entrypoint-initdb.d/sample-data.sql"
+
+  info "SQL command executed successfully."
 }
 
 deploy_spark_operator() {
@@ -116,10 +141,33 @@ deploy_spark_operator() {
 build_spark_image() {
   info "Building Spark image '${SPARK_IMAGE_TAG}'..."
 
-  local driver_jar="${SCRIPT_DIR}/docker/spark/drivers/ojdbc8.jar"
+  local driver_jar="${SCRIPT_DIR}/docker/spark/drivers/mysql-connector-j.jar"
   if [[ ! -f "${driver_jar}" ]]; then
-    warn "Oracle JDBC driver not found at ${driver_jar}."
-    warn "You must download ojdbc8.jar (or compatible) and place it there before running the job."
+    warn "MySQL JDBC driver not found at ${driver_jar}."
+    warn "Attempting to download mysql-connector-j.jar from Maven Central using wget/curl..."
+
+    local download_url="https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.3.0/mysql-connector-j-8.3.0.jar"
+    mkdir -p "$(dirname "${driver_jar}")"
+
+    if command -v wget >/dev/null 2>&1; then
+      info "Using wget to download MySQL JDBC driver..."
+      if ! wget -O "${driver_jar}" "${download_url}"; then
+        warn "wget failed to download JDBC driver from ${download_url}."
+      fi
+    elif command -v curl >/dev/null 2>&1; then
+      info "Using curl to download MySQL JDBC driver..."
+      if ! curl -L -o "${driver_jar}" "${download_url}"; then
+        warn "curl failed to download JDBC driver from ${download_url}."
+      fi
+    else
+      warn "Neither wget nor curl is available; cannot auto-download JDBC driver."
+    fi
+
+    if [[ ! -f "${driver_jar}" ]]; then
+      error "MySQL JDBC driver is still missing after download attempt."
+      error "Please download mysql-connector-j.jar manually and place it at: ${driver_jar}"
+      exit 1
+    fi
   fi
 
   docker build -t "${SPARK_IMAGE_TAG}" "${SCRIPT_DIR}/docker/spark"
@@ -157,9 +205,9 @@ main() {
     check_prereqs
     create_namespace
     apply_storage
-    deploy_oracle
-    wait_for_oracle
-    load_sample_sql
+    deploy_mysql
+    wait_for_mysql
+    load_mysql_sql
     deploy_spark_operator
     build_spark_image
     submit_spark_app
@@ -178,9 +226,9 @@ main() {
       prereqs)     check_prereqs ;;
       namespace)   create_namespace ;;
       storage)     apply_storage ;;
-      oracle)      deploy_oracle ;;
-      oracle-wait) wait_for_oracle ;;
-      oracle-sql)  load_sample_sql ;;
+      mysql)       deploy_mysql ;;
+      mysql-wait)  wait_for_mysql ;;
+      mysql-sql)   load_mysql_sql ;;
       operator)    deploy_spark_operator ;;
       image)       build_spark_image ;;
       spark-app)   submit_spark_app ;;

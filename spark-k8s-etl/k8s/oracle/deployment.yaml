@@ -15,6 +15,16 @@ spec:
       labels:
         app: oracle-xe
     spec:
+      # Ensure the mounted data directory is writable by the Oracle user
+      # (the container runs as a non-root user). The hostPath backing the
+      # PV is typically owned by root, so we fix permissions here.
+      initContainers:
+        - name: init-oracle-permissions
+          image: busybox:1.36
+          command: ["sh", "-c", "chown -R 54321:54321 /opt/oracle/oradata || true"]
+          volumeMounts:
+            - name: oracle-data
+              mountPath: /opt/oracle/oradata
       containers:
         - name: oracle
           image: gvenzl/oracle-xe:21-slim

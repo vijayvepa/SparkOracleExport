@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: spark-etl
+  name: spark-etl-mysql
   labels:
-    app.kubernetes.io/name: spark-etl
+    app.kubernetes.io/name: spark-etl-mysql
 

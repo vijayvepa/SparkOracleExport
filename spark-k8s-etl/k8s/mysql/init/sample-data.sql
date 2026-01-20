@@ -1,0 +1,17 @@
+-- Sample CUSTOMERS table and data for Spark ETL (MySQL)
+CREATE TABLE IF NOT EXISTS CUSTOMERS (
+  ID      INT PRIMARY KEY,
+  NAME    VARCHAR(30) NOT NULL,
+  STATE   CHAR(2)     NOT NULL,
+  BALANCE DECIMAL(12,2) DEFAULT 0
+);
+
+INSERT INTO CUSTOMERS (ID, NAME, STATE, BALANCE) VALUES
+  (1, 'Alice Johnson', 'CA', 1200.50),
+  (2, 'Bob Smith',     'NY', 250.00),
+  (3, 'Charlie Brown', 'TX', 98765.43),
+  (4, 'Diana Prince',  'WA', 0.00),
+  (5, 'Evan Miller',   'FL', 1234.56)
+ON DUPLICATE KEY UPDATE
+  NAME=VALUES(NAME), STATE=VALUES(STATE), BALANCE=VALUES(BALANCE);
+

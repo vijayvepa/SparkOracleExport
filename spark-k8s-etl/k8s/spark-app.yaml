@@ -1,0 +1,38 @@
+apiVersion: sparkoperator.k8s.io/v1beta2
+kind: SparkApplication
+metadata:
+  name: mysql-fixedwidth-etl
+  namespace: spark-etl-mysql
+spec:
+  type: Python
+  mode: cluster
+  image: spark-etl:local
+  imagePullPolicy: IfNotPresent
+  mainApplicationFile: local:///opt/spark-app/etl_job.py
+  arguments: []
+  sparkVersion: "3.5.0"
+  restartPolicy:
+    type: Never
+  volumes:
+    - name: output-pvc
+      persistentVolumeClaim:
+        claimName: etl-output-pvc
+  driver:
+    cores: 1
+    memory: 1g
+    labels:
+      version: "3.5.0"
+    serviceAccount: default
+    volumeMounts:
+      - name: output-pvc
+        mountPath: /output
+  executor:
+    cores: 1
+    instances: 2
+    memory: 1g
+    labels:
+      version: "3.5.0"
+    volumeMounts:
+      - name: output-pvc
+        mountPath: /output
+

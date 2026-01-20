@@ -15,6 +15,7 @@ Build a local Spark-on-Kubernetes ETL pipeline that:
 FOLDER STRUCTURE:
 Create the following structure with real content where appropriate:
 
+```
 spark-k8s-etl/
 │
 ├── charts/
@@ -53,6 +54,7 @@ spark-k8s-etl/
 │   └── submit.sh                      # Optional local spark-submit
 │
 └── README.md                          # Full instructions
+```
 
 CONTENT REQUIREMENTS:
 

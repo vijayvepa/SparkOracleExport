@@ -1,0 +1,7 @@
+[
+  { "name": "ID",      "length": 10, "type": "num"  },
+  { "name": "NAME",    "length": 30, "type": "char" },
+  { "name": "STATE",   "length": 2,  "type": "char" },
+  { "name": "BALANCE", "length": 12, "type": "num"  }
+]
+
