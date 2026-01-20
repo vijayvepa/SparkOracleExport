@@ -124,18 +124,50 @@ deploy_spark_operator() {
   fi
 
   # Add repo if missing; ignore error if it already exists.
-  helm repo add spark-operator https://googlecloudplatform.github.io/spark-on-k8s-operator >/dev/null 2>&1 || true
-  helm repo update >/dev/null 2>&1 || true
+  info "Adding Spark Operator Helm repository..."
+  if ! helm repo list | grep -q "^spark-operator"; then
+    if ! helm repo add spark-operator https://kubeflow.github.io/spark-operator; then
+      error "Failed to add Spark Operator Helm repository."
+      exit 1
+    fi
+    info "Spark Operator repository added successfully."
+  else
+    info "Spark Operator repository already exists."
+  fi
+
+  info "Updating Helm repositories..."
+  if ! helm repo update; then
+    warn "Helm repo update had issues, but continuing..."
+  fi
 
   # Install or upgrade into the same namespace used by the ETL job.
+  info "Installing/upgrading Spark Operator..."
   helm upgrade --install spark-operator spark-operator/spark-operator \
     --namespace "${NAMESPACE}" \
     --create-namespace \
     "${values_arg[@]}"
 
   info "Waiting for Spark Operator pods to be ready..."
-  kubectl -n "${NAMESPACE}" rollout status deploy/spark-operator --timeout=5m || \
-    warn "Could not confirm Spark Operator deployment rollout; check pods manually."
+  # The Spark Operator Helm chart may create a deployment with a different name
+  # Try to find it by label selector first
+  local operator_deployment
+  operator_deployment="$(kubectl -n "${NAMESPACE}" get deploy -l app.kubernetes.io/name=spark-operator -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)"
+  
+  if [[ -n "${operator_deployment}" ]]; then
+    info "Found Spark Operator deployment: ${operator_deployment}"
+    kubectl -n "${NAMESPACE}" rollout status "deploy/${operator_deployment}" --timeout=5m || \
+      warn "Could not confirm Spark Operator deployment rollout; check pods manually."
+  else
+    # Fallback: try common deployment names
+    if kubectl -n "${NAMESPACE}" get deploy spark-operator >/dev/null 2>&1; then
+      kubectl -n "${NAMESPACE}" rollout status deploy/spark-operator --timeout=5m || \
+        warn "Could not confirm Spark Operator deployment rollout; check pods manually."
+    else
+      warn "Could not find Spark Operator deployment. Listing all deployments in namespace:"
+      kubectl -n "${NAMESPACE}" get deploy
+      warn "Check pods manually: kubectl -n ${NAMESPACE} get pods -l app.kubernetes.io/name=spark-operator"
+    fi
+  fi
 }
 
 build_spark_image() {
@@ -170,7 +202,7 @@ build_spark_image() {
     fi
   fi
 
-  docker build -t "${SPARK_IMAGE_TAG}" "${SCRIPT_DIR}/docker/spark"
+  docker build -t "${SPARK_IMAGE_TAG}" -f "${SCRIPT_DIR}/docker/spark/Dockerfile" "${SCRIPT_DIR}"
 }
 
 submit_spark_app() {
