@@ -11,8 +11,8 @@ metadata:
   namespace: spark-etl-mysql
 rules:
 - apiGroups: [""]
-  resources: ["pods", "pods/log", "services", "configmaps"]
-  verbs: ["get", "list", "watch", "create", "delete"]
+  resources: ["pods", "pods/log", "services", "configmaps", "persistentvolumeclaims"]
+  verbs: ["get", "list", "watch", "create", "delete", "deletecollection"]
 - apiGroups: ["batch"]
   resources: ["jobs"]
   verbs: ["create", "delete", "get", "list", "watch"]

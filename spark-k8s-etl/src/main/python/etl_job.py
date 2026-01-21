@@ -32,7 +32,7 @@ def main():
     # JDBC connection details (MySQL)
     jdbc_url = os.environ.get(
         "JDBC_URL",
-        "jdbc:mysql://mysql:3306/etldb?useSSL=false&serverTimezone=UTC",
+        "jdbc:mysql://mysql:3306/etldb?allowPublicKeyRetrieval=TRUE&useSSL=false&serverTimezone=UTC",
     )
     jdbc_user = os.environ.get("JDBC_USER", "root")
     jdbc_password = os.environ.get("JDBC_PASSWORD", "rootpassword")
