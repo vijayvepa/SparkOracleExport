@@ -213,6 +213,9 @@ build_spark_image() {
 }
 
 submit_spark_app() {
+	info "Adding Spark account..."
+	kubectl apply -f "${SCRIPT_DIR}/k8s/spark-account.yaml"
+
   info "Submitting SparkApplication CRD..."
   kubectl apply -f "${SCRIPT_DIR}/k8s/spark-app.yaml"
 

@@ -23,7 +23,7 @@ spec:
     memory: 1g
     labels:
       version: "3.5.0"
-    serviceAccount: default
+    serviceAccount: spark
     volumeMounts:
       - name: output-pvc
         mountPath: /output
