@@ -12,6 +12,11 @@ spec:
   mainApplicationFile: local:///opt/spark-app/etl_job.py
   arguments: []
   sparkVersion: "3.5.0"
+  sparkConf:
+    "spark.kubernetes.executor.deleteOnTermination": "false"
+    "spark.kubernetes.driver.deleteOnTermination": "false"
+    "spark.executor.debug.sleep": "600000"
+
   restartPolicy:
     type: Never
   volumes:
@@ -27,6 +32,8 @@ spec:
     volumeMounts:
       - name: output-pvc
         mountPath: /output
+    securityContext:
+      fsGroup: 185
   executor:
     cores: 1
     instances: 2
@@ -34,6 +41,8 @@ spec:
     labels:
       version: "3.5.0"
     serviceAccount: spark
+    securityContext:
+      fsGroup: 185
     volumeMounts:
       - name: output-pvc
         mountPath: /output

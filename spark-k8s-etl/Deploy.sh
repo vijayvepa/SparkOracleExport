@@ -115,66 +115,63 @@ load_mysql_sql() {
 }
 
 deploy_spark_operator() {
-  info "Installing/ensuring Spark Operator via Helm..."
+  local operator_ns="spark-operator"
+  local release_name="spark-operator"
 
-  # Allow user to pre-create a values file as described in the project spec.
-  local values_file="${SCRIPT_DIR}/k8s/spark-operator-values.yaml"
-  local values_arg=()
-  if [[ -f "${values_file}" ]]; then
-    values_arg=(-f "${values_file}")
-    info "Using Spark Operator values file: ${values_file}"
-  else
-    warn "Spark Operator values file not found at ${values_file}; proceeding with chart defaults."
-  fi
-
-  # Add repo if missing; ignore error if it already exists.
-  info "Adding Spark Operator Helm repository..."
+  info "Adding Kubeflow Spark Operator Helm repository..."
   if ! helm repo list | grep -q "^spark-operator"; then
-    if ! helm repo add spark-operator https://kubeflow.github.io/spark-operator; then
-      error "Failed to add Spark Operator Helm repository."
-      exit 1
-    fi
-    info "Spark Operator repository added successfully."
+    helm repo add spark-operator https://kubeflow.github.io/spark-operator \
+      || { error "Failed to add Kubeflow Spark Operator repo"; exit 1; }
   else
-    info "Spark Operator repository already exists."
+    info "Helm repo 'spark-operator' already exists."
   fi
 
   info "Updating Helm repositories..."
-  if ! helm repo update; then
-    warn "Helm repo update had issues, but continuing..."
-  fi
+  helm repo update || warn "Helm repo update encountered issues, continuing..."
 
-  # Install or upgrade into the same namespace used by the ETL job.
-  # Ensure the operator watches our ETL namespace (by default it watches "default").
-  info "Installing/upgrading Spark Operator..."
-  helm upgrade --install spark-operator spark-operator/spark-operator \
-    --namespace "${NAMESPACE}" \
+  info "Installing or upgrading Spark Operator via Helm..."
+  helm upgrade --install "${release_name}" spark-operator/spark-operator \
+    --namespace "${operator_ns}" \
     --create-namespace \
-    --set sparkJobNamespace="${NAMESPACE}" \
-    --set spark.jobNamespaces="{${NAMESPACE}}" \
-    "${values_arg[@]}"
+    --set webhook.enable=true \
+    || { error "Helm install/upgrade failed"; exit 1; }
 
-  info "Waiting for Spark Operator pods to be ready..."
-  # The Spark Operator Helm chart may create a deployment with a different name
-  # Try to find it by label selector first
-  local operator_deployment
-  operator_deployment="$(kubectl -n "${NAMESPACE}" get deploy -l app.kubernetes.io/name=spark-operator -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)"
-  
-  if [[ -n "${operator_deployment}" ]]; then
-    info "Found Spark Operator deployment: ${operator_deployment}"
-    kubectl -n "${NAMESPACE}" rollout status "deploy/${operator_deployment}" --timeout=5m || \
-      warn "Could not confirm Spark Operator deployment rollout; check pods manually."
+  info "Waiting for Spark Operator deployments to become ready..."
+
+  # Controller
+  if kubectl -n "${operator_ns}" get deploy spark-operator-controller >/dev/null 2>&1; then
+    kubectl rollout status deploy/spark-operator-controller \
+      -n "${operator_ns}" --timeout=5m \
+      || warn "Spark Operator controller rollout not confirmed."
   else
-    # Fallback: try common deployment names
-    if kubectl -n "${NAMESPACE}" get deploy spark-operator >/dev/null 2>&1; then
-      kubectl -n "${NAMESPACE}" rollout status deploy/spark-operator --timeout=5m || \
-        warn "Could not confirm Spark Operator deployment rollout; check pods manually."
-    else
-      warn "Could not find Spark Operator deployment. Listing all deployments in namespace:"
-      kubectl -n "${NAMESPACE}" get deploy
-      warn "Check pods manually: kubectl -n ${NAMESPACE} get pods -l app.kubernetes.io/name=spark-operator"
-    fi
+    warn "Controller deployment not found in namespace ${operator_ns}."
   fi
+
+  # Webhook
+  if kubectl -n "${operator_ns}" get deploy spark-operator-webhook >/dev/null 2>&1; then
+    kubectl rollout status deploy/spark-operator-webhook \
+      -n "${operator_ns}" --timeout=5m \
+      || warn "Spark Operator webhook rollout not confirmed."
+  else
+    warn "Webhook deployment not found in namespace ${operator_ns}."
+  fi
+
+  info "Checking for required CRDs..."
+
+  local crds=(
+    "sparkapplications.sparkoperator.k8s.io"
+    "scheduledsparkapplications.sparkoperator.k8s.io"
+  )
+
+  for crd in "${crds[@]}"; do
+    until kubectl get crd "${crd}" >/dev/null 2>&1; do
+      info "Waiting for CRD: ${crd} ..."
+      sleep 2
+    done
+    info "CRD available: ${crd}"
+  done
+
+  info "Spark Operator installation complete and ready."
 }
 
 build_spark_image() {
@@ -216,8 +213,6 @@ submit_spark_app() {
 	info "Adding Spark account..."
 	kubectl apply -f "${SCRIPT_DIR}/k8s/spark-account.yaml"
 
-	info "Deleting old SparkApplication CRD..."
-	kubectl -n "${NAMESPACE}" delete sparkapplication mysql-fixedwidth-etl
 
   info "Submitting SparkApplication CRD..."
   kubectl apply -f "${SCRIPT_DIR}/k8s/spark-app.yaml"

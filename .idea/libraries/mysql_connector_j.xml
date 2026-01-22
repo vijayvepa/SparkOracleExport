@@ -1,0 +1,9 @@
+<component name="libraryTable">
+  <library name="mysql-connector-j">
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/spark-k8s-etl/docker/spark/drivers/mysql-connector-j.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>

@@ -5,6 +5,32 @@ from typing import List, Dict
 from pyspark.sql import SparkSession, DataFrame
 from pyspark.sql.functions import col, lpad, rpad, concat_ws
 
+def executor_debug_sleep(_):
+    import os, time
+
+    print("=== EXECUTOR DEBUG START ===")
+    print("cwd:", os.getcwd())
+    print("uid/gid:", os.getuid(), os.getgid())
+    print("ls /:", os.listdir("/"))
+    print("ls /output:", os.listdir("/output") if os.path.exists("/output") else "NO /output")
+    print("Sleeping for 300 seconds inside executor...")
+    print("===========================================")
+
+    time.sleep(300)   # sleep 5 minutes
+    return []
+
+
+
+def debug_partition(_):
+    import os
+    print("=== EXECUTOR DEBUG ===")
+    print("cwd:", os.getcwd())
+    print("whoami:", os.getuid(), os.getgid())
+    print("ls /:", os.listdir("/"))
+    print("ls /output:", os.listdir("/output") if os.path.exists("/output") else "NO /output")
+    print("======================")
+    return []
+
 
 def load_layout(path: str) -> List[Dict]:
     with open(path, "r", encoding="utf-8") as f:
@@ -50,6 +76,15 @@ def main():
         .getOrCreate()
     )
 
+    print("Setting log level to DEBUG")
+    spark.sparkContext.setLogLevel("DEBUG")
+
+    print("---------------")
+    print("Running sleep on executors")
+    spark.sparkContext.parallelize([1], 1).mapPartitions(executor_debug_sleep).collect()
+
+
+
     df = (
         spark.read.format("jdbc")
         .option("url", jdbc_url)
@@ -62,11 +97,11 @@ def main():
 
     fw_df = apply_fixed_width(df, layout).coalesce(1)
 
+    print("Writing to:", output_path)
+    print("Absolute path:", os.path.abspath(output_path))
     fw_df.write.mode("overwrite").text(output_path)
 
     spark.stop()
 
-
 if __name__ == "__main__":
     main()
-
