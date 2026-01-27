@@ -71,6 +71,10 @@ deploy_mysql() {
 	docker pull mysql:8.0
 	info "Docker image pulled successfully."
 
+	info "Pulling busybox image..."
+	docker pull busybox:1.36
+	info "Busybox image pulled successfully."
+
   info "Deploying MySQL resources..."
   kubectl apply -f "${SCRIPT_DIR}/k8s/mysql/init-configmap.yaml"
   kubectl apply -f "${SCRIPT_DIR}/k8s/mysql/deployment.yaml"
@@ -133,8 +137,12 @@ deploy_spark_operator() {
   helm upgrade --install "${release_name}" spark-operator/spark-operator \
     --namespace "${operator_ns}" \
     --create-namespace \
+		--set sparkJobNamespace=${NAMESPACE} \
+    --set spark.jobNamespaces="{${NAMESPACE}}" \
+		--set enableWebhook=true \
     --set webhook.enable=true \
     || { error "Helm install/upgrade failed"; exit 1; }
+
 
   info "Waiting for Spark Operator deployments to become ready..."
 

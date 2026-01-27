@@ -32,8 +32,6 @@ spec:
     volumeMounts:
       - name: output-pvc
         mountPath: /output
-    securityContext:
-      fsGroup: 185
   executor:
     cores: 1
     instances: 2
@@ -41,8 +39,6 @@ spec:
     labels:
       version: "3.5.0"
     serviceAccount: spark
-    securityContext:
-      fsGroup: 185
     volumeMounts:
       - name: output-pvc
         mountPath: /output
