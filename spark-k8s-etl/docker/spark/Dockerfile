@@ -23,5 +23,6 @@ WORKDIR /opt/spark-app
 COPY src/main/python/ /opt/spark-app/
 COPY config/ /opt/spark-app/config/
 
-USER 185
+
+
 

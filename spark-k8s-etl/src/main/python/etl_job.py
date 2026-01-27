@@ -5,6 +5,7 @@ from typing import List, Dict
 from pyspark.sql import SparkSession, DataFrame
 from pyspark.sql.functions import col, lpad, rpad, concat_ws
 
+
 def executor_debug_sleep(_):
     import os, time
 
@@ -16,9 +17,8 @@ def executor_debug_sleep(_):
     print("Sleeping for 300 seconds inside executor...")
     print("===========================================")
 
-    time.sleep(300)   # sleep 5 minutes
+    time.sleep(300)  # sleep 5 minutes
     return []
-
 
 
 def debug_partition(_):
@@ -79,10 +79,9 @@ def main():
     print("Setting log level to DEBUG")
     spark.sparkContext.setLogLevel("DEBUG")
 
-    print("---------------")
-    print("Running sleep on executors")
-    spark.sparkContext.parallelize([1], 1).mapPartitions(executor_debug_sleep).collect()
-
+    # print("---------------")
+    # print("Running sleep on executors")
+    # spark.sparkContext.parallelize([1], 1).mapPartitions(executor_debug_sleep).collect()
 
 
     df = (
